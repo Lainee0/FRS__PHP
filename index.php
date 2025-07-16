@@ -153,11 +153,11 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         <!-- Navigation -->
         <ul class="nav nav-pills flex-column">
-            <li class="nav-item">
+            <!-- <li class="nav-item">
                 <a href="dashboard.php" class="nav-link">
                     <i class="bi bi-speedometer2 me-2"></i>Dashboard
                 </a>
-            </li>
+            </li> -->
             <li class="nav-item">
                 <a href="index.php" class="nav-link active">
                     <i class="bi bi-people-fill me-2"></i>Family Members
@@ -169,9 +169,9 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </button>
             </li>
             <li class="nav-item">
-                <a href="import.php" class="nav-link">
+                <button class="nav-link" data-bs-toggle="modal" data-bs-target="#importModal">
                     <i class="bi bi-file-earmark-excel me-2"></i>Import Data
-                </a>
+                </button>
             </li>
             <li class="nav-item mt-3">
                 <a href="logout.php" class="nav-link text-danger">
@@ -393,9 +393,64 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
 
+    <!-- Import Data Modal -->
+    <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="importModalLabel">Import Family Data</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- <div class="instructions mb-3 p-3 bg-light rounded">
+                        <strong>Important:</strong>
+                        <ul>
+                            <li>File name must match the barangay name (e.g., "Candulao.xlsx")</li>
+                            <li>The <strong>Row Indicator</strong> column must contain "Head" for family heads</li>
+                            <li>All members of a household must have the same Household Number</li>
+                        </ul>
+                    </div> -->
+                    
+                    <form method="POST" enctype="multipart/form-data" action="import.php">
+                        <div class="mb-3">
+                            <label for="excel_file" class="form-label">Select Excel File</label>
+                            <input type="file" class="form-control" id="excel_file" name="excel_file" accept=".xlsx, .xls" required>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Import Data</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     $(document).ready(function() {
+        // Import Modal
+        $('#importModal form').on('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData(this);
+            
+            $.ajax({
+                url: 'import.php',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    // This will handle the redirect from import.php
+                    // The success/error messages will be shown via session messages
+                    $('#importModal').modal('hide');
+                    window.location.reload();
+                },
+                error: function(xhr, status, error) {
+                    alert('Error during import: ' + error);
+                }
+            });
+        });
         // Real-time search functionality
         $('#searchInput').on('input', function() {
             performSearch();

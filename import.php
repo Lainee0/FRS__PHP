@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once 'config.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
@@ -79,12 +80,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
         }
         
         $pdo->commit();
-        $success = "Excel file imported successfully! Barangay: $barangay. Household relationships established.";
+        $_SESSION['success_message'] = "Excel file imported successfully! Barangay: $barangay. Household relationships established.";
     } catch (Exception $e) {
         $pdo->rollBack();
-        $error = "Error importing file: " . $e->getMessage();
+        $_SESSION['error_message'] = "Error importing file: " . $e->getMessage();
     }
+    
+    // Redirect back to index.php after import
+    header('Location: index.php');
+    exit;
 }
+
+// If not a POST request, show the standalone page (for backward compatibility)
 ?>
 
 <!DOCTYPE html>
@@ -104,10 +111,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
     <div class="container mt-4">
         <h2 class="mb-4">Import Family Data</h2>
         
-        <?php if (isset($success)): ?>
-            <div class="alert alert-success"><?= $success ?></div>
-        <?php elseif (isset($error)): ?>
-            <div class="alert alert-danger"><?= $error ?></div>
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div class="alert alert-success"><?= $_SESSION['success_message'] ?></div>
+            <?php unset($_SESSION['success_message']); ?>
+        <?php elseif (isset($_SESSION['error_message'])): ?>
+            <div class="alert alert-danger"><?= $_SESSION['error_message'] ?></div>
+            <?php unset($_SESSION['error_message']); ?>
         <?php endif; ?>
         
         <div class="card mb-4">
