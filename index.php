@@ -76,7 +76,7 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Family Data Management</title>
+    <title>Family Registry System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -309,7 +309,7 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <select class="form-select" name="row_indicator" required>
                                         <option value="Head">Head</option>
                                         <option value="Member">Member</option>
-                                        <option value="Dead">Dead</option>
+                                        <!-- <option value="Dead">Dead</option> -->
                                     </select>
                                 </div>
                                 <div class="mb-3">

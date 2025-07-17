@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'civil_status' => $_POST['civil_status'],
         'household_number' => $_POST['household_number'],
         'barangay' => $_POST['barangay'],
-        'is_leader' => isset($_POST['is_leader']) ? 1 : 0
+        // 'is_leader' => isset($_POST['is_leader']) ? 1 : 0
     ];
 
     $sql = "UPDATE families SET sn = :sn, row_indicator = :row_indicator, last_name = :last_name, 
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <select class="form-select" name="row_indicator" required>
                             <option value="Head" <?= $family['row_indicator'] == 'Head' ? 'selected' : '' ?>>Head</option>
                             <option value="Member" <?= $family['row_indicator'] == 'Member' ? 'selected' : '' ?>>Member</option>
-                            <option value="Dead" <?= $family['row_indicator'] == 'Dead' ? 'selected' : '' ?>>Dead</option>
+                            <!-- <option value="Dead" <?= $family['row_indicator'] == 'Dead' ? 'selected' : '' ?>>Dead</option> -->
                         </select>
                     </div>
                     <div class="mb-3">
@@ -131,10 +131,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <option value="Widower" <?= $family['civil_status'] == 'Widower' ? 'selected' : '' ?>>Widower</option>
                         </select>
                     </div>
-                    <div class="mb-3 form-check">
+                    <!-- <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" name="is_leader" id="is_leader" <?= $family['is_leader'] ? 'checked' : '' ?>>
                         <label class="form-check-label" for="is_leader">Leader</label>
-                    </div>
+                    </div> -->
                 </div>
             </div>
             <button type="submit" class="btn btn-primary">Update</button>

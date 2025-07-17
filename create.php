@@ -58,7 +58,7 @@ $barangays = $stmt->fetchAll(PDO::FETCH_COLUMN);
                         <select class="form-select" name="row_indicator" required>
                             <option value="Head">Head</option>
                             <option value="Member">Member</option>
-                            <option value="Dead">Dead</option>
+                            <!-- <option value="Dead">Dead</option> -->
                         </select>
                     </div>
                     <div class="mb-3">
