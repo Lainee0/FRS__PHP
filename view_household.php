@@ -8,15 +8,30 @@ if (!isset($_GET['household_number'])) {
 
 $household_number = $_GET['household_number'];
 
+// Get the barangay of the current household first
+$stmt = $pdo->prepare("SELECT barangay FROM families WHERE household_number = ? LIMIT 1");
+$stmt->execute([$household_number]);
+$current_barangay = $stmt->fetchColumn();
+
+if (!$current_barangay) {
+    header("Location: index.php");
+    exit;
+}
+
 // Handle form submission for remarks
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['save_remarks'])) {
         $member_id = $_POST['member_id'];
-        $remarks = $_POST['remarks'];
+        $remarks = $_POST['remarks']; // This is an array
+        
+        // Combine all remarks with newline separation
+        $combinedRemarks = implode("\n", array_filter($remarks, function($r) { 
+            return !empty(trim($r)); 
+        }));
         
         try {
             $stmt = $pdo->prepare("UPDATE families SET remarks = ? WHERE id = ?");
-            $stmt->execute([$remarks, $member_id]);
+            $stmt->execute([$combinedRemarks, $member_id]);
             
             $_SESSION['success_message'] = "Remarks saved successfully!";
             header("Location: view_household.php?household_number=" . $household_number);
@@ -70,15 +85,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get household head info (first head found with this household number)
-$stmt = $pdo->prepare("SELECT * FROM families WHERE household_number = ? AND is_head = 1 LIMIT 1");
-$stmt->execute([$household_number]);
+// Get household head info (first head found with this household number AND barangay)
+$stmt = $pdo->prepare("SELECT * FROM families WHERE household_number = ? AND barangay = ? AND is_head = 1 LIMIT 1");
+$stmt->execute([$household_number, $current_barangay]);
 $head = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$head) {
     // If no head found, just get the first member (for display purposes)
-    $stmt = $pdo->prepare("SELECT * FROM families WHERE household_number = ? LIMIT 1");
-    $stmt->execute([$household_number]);
+    $stmt = $pdo->prepare("SELECT * FROM families WHERE household_number = ? AND barangay = ? LIMIT 1");
+    $stmt->execute([$household_number, $current_barangay]);
     $head = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$head) {
@@ -87,10 +102,10 @@ if (!$head) {
     }
 }
 
-// Get all household members with the same household_number
+// Get all household members with the same household_number AND barangay
 $stmt = $pdo->prepare("
     SELECT * FROM families 
-    WHERE household_number = ?
+    WHERE household_number = ? AND barangay = ?
     ORDER BY 
         is_head DESC, -- Head first
         CASE 
@@ -101,8 +116,13 @@ $stmt = $pdo->prepare("
         END,
         age DESC
 ");
-$stmt->execute([$household_number]);
+$stmt->execute([$household_number, $current_barangay]);
 $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get all household numbers in the same barangay for navigation
+$stmt = $pdo->prepare("SELECT DISTINCT household_number FROM families WHERE barangay = ? ORDER BY household_number");
+$stmt->execute([$current_barangay]);
+$household_numbers = $stmt->fetchAll(PDO::FETCH_COLUMN);
 ?>
 
 <!DOCTYPE html>
@@ -182,7 +202,7 @@ $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <div class="card">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Family Members</h5>
-                <button class="btn btn-light btn-sm" id="addMemberBtn">
+                <button class="btn btn-warning btn-sm" id="addMemberBtn">
                     <i class="bi bi-plus"></i> Add Member
                 </button>
             </div>
@@ -278,14 +298,18 @@ $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="member_id" id="modalMemberId">
-                        <div class="mb-3">
-                            <label for="remarksNotes" class="form-label">Remarks</label>
-                            <!-- <textarea class="form-control" id="remarksNotes" name="remarks" rows="5"></textarea> -->
-                            <input type="text" class="form-control" name="remarks" id="remarksNotes">
-                            <button class="btn btn-primary btn-sm" id="addRemarksBtn">
-                                <i class="bi bi-plus"></i>
-                            </button>
+                        <div class="mb-3" id="remarksContainer">
+                            <!-- Initial remarks field -->
+                            <div class="input-group mb-2 remarks-field">
+                                <input type="text" class="form-control" name="remarks[]" placeholder="Enter remark">
+                                <button type="button" class="btn btn-danger remove-remark-btn" disabled>
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
                         </div>
+                        <button type="button" class="btn btn-sm btn-warning text-white" id="addRemarksBtn">
+                            <i class="bi bi-plus"></i> Add Remark
+                        </button>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -528,18 +552,109 @@ $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
         const editMemberModal = new bootstrap.Modal(document.getElementById('editMemberModal'));
         const addMemberModal = new bootstrap.Modal(document.getElementById('addMemberModal'));
         
-        // Remarks modal handling
+        // Function to populate remarks fields
+        function populateRemarksFields(memberId, remarks) {
+            document.getElementById('modalMemberId').value = memberId;
+            const container = document.getElementById('remarksContainer');
+            
+            // Clear existing fields
+            container.innerHTML = '';
+            
+            // Split existing remarks by newline or comma
+            const remarksArray = remarks ? remarks.split(/\n|,/) : [''];
+            
+            // Create fields for each remark
+            remarksArray.forEach((remark, index) => {
+                const fieldDiv = document.createElement('div');
+                fieldDiv.className = 'input-group mb-2 remarks-field';
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'form-control';
+                input.name = 'remarks[]';
+                input.placeholder = 'Enter remark';
+                input.value = remark.trim();
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-danger remove-remark-btn';
+                removeBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                
+                // Disable remove button if it's the only field
+                if (index === 0 && remarksArray.length === 1) {
+                    removeBtn.disabled = true;
+                }
+                
+                removeBtn.addEventListener('click', function() {
+                    fieldDiv.remove();
+                    updateRemoveButtons();
+                });
+                
+                fieldDiv.appendChild(input);
+                fieldDiv.appendChild(removeBtn);
+                container.appendChild(fieldDiv);
+            });
+            
+            remarksModal.show();
+        }
+        
+        // Edit remarks button handling
         document.querySelectorAll('.edit-remarks').forEach(button => {
-            button.addEventListener('click', function () {
+            button.addEventListener('click', function() {
                 const memberId = this.getAttribute('data-member-id');
                 const remarks = this.getAttribute('data-remarks');
-                
-                document.getElementById('modalMemberId').value = memberId;
-                document.getElementById('remarksNotes').value = remarks || '';
-                
-                remarksModal.show();
+                populateRemarksFields(memberId, remarks);
             });
         });
+        
+        // Remarks link handling
+        document.querySelectorAll('.remarks-view').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const memberId = this.getAttribute('data-member-id');
+                const remarks = this.getAttribute('data-remarks');
+                populateRemarksFields(memberId, remarks);
+            });
+        });
+        
+        // Add new remark field
+        document.getElementById('addRemarksBtn').addEventListener('click', function() {
+            const container = document.getElementById('remarksContainer');
+            
+            const fieldDiv = document.createElement('div');
+            fieldDiv.className = 'input-group mb-2 remarks-field';
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control';
+            input.name = 'remarks[]';
+            input.placeholder = 'Enter remark';
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-danger remove-remark-btn';
+            removeBtn.innerHTML = '<i class="bi bi-trash"></i>';
+            
+            removeBtn.addEventListener('click', function() {
+                fieldDiv.remove();
+                updateRemoveButtons();
+            });
+            
+            fieldDiv.appendChild(input);
+            fieldDiv.appendChild(removeBtn);
+            container.appendChild(fieldDiv);
+            
+            updateRemoveButtons();
+        });
+        
+        // Update remove buttons state
+        function updateRemoveButtons() {
+            const fields = document.querySelectorAll('.remarks-field');
+            fields.forEach((field, index) => {
+                const removeBtn = field.querySelector('.remove-remark-btn');
+                removeBtn.disabled = fields.length <= 1;
+            });
+        }
         
         // Edit member modal handling
         document.querySelectorAll('.edit-member').forEach(button => {

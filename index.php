@@ -28,11 +28,6 @@ $limit = 20;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-// Get total records
-$stmt = $pdo->query("SELECT COUNT(*) FROM families");
-$total_records = $stmt->fetchColumn();
-$total_pages = ceil($total_records / $limit);
-
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $barangay_filter = isset($_GET['barangay']) ? trim($_GET['barangay']) : '';
 
@@ -51,6 +46,17 @@ if (!empty($barangay_filter)) {
 
 $where_clause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
+// Get total records
+$count_sql = "SELECT COUNT(*) FROM families $where_clause";
+$stmt = $pdo->prepare($count_sql);
+foreach ($params as $key => $value) {
+    $stmt->bindValue($key, $value);
+}
+$stmt->execute();
+$total_records = $stmt->fetchColumn();
+$total_pages = ceil($total_records / $limit);
+
+
 // Count query
 $count_sql = "SELECT COUNT(*) FROM families $where_clause";
 $stmt = $pdo->prepare($count_sql);
@@ -60,7 +66,7 @@ foreach ($params as $key => $value) {
 $stmt->execute();
 $total_records = $stmt->fetchColumn();
 
-// Data query - Showing all members
+// Data query with limit and offset
 $sql = "SELECT * FROM families $where_clause ORDER BY barangay, household_number, is_head DESC, last_name LIMIT :limit OFFSET :offset";
 $stmt = $pdo->prepare($sql);
 foreach ($params as $key => $value) {
@@ -191,7 +197,7 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <div class="card-body">
                 <form id="searchForm" method="GET" class="row g-3">
                     <div class="col-md-4">
-                        <input type="text" name="search" id="searchInput" class="form-control" placeholder="Search name..." 
+                        <input type="text" name="search" id="searchInput" class="form-control" placeholder="Search..." 
                             value="<?= isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '' ?>">
                     </div>
                     <div class="col-md-3">
@@ -230,6 +236,7 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <th>Civil Status</th>
                                 <!-- <th>Leader</th>
                                 <th>Head</th> -->
+                                <th>Remarks</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -247,12 +254,33 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <td><?= htmlspecialchars($family['civil_status']) ?></td>
                                 <!-- <td><?= $family['is_leader'] ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>' ?></td>
                                 <td><?= $family['is_head'] ? '<span class="badge bg-primary">Yes</span>' : '<span class="badge bg-secondary">No</span>' ?></td> -->
+                                <td class="remarks-cell">
+                                    <?php if (!empty($family['remarks'])): ?>
+                                        <?php 
+                                        // Split remarks by newline and filter out empty lines
+                                        $remarks = array_filter(explode("\n", $family['remarks']), function($r) {
+                                            return trim($r) !== '';
+                                        });
+                                        ?>
+                                        <?php if (!empty($remarks)): ?>
+                                            <ul style="margin-bottom: 0; padding-left: 1rem;">
+                                                <?php foreach ($remarks as $remark): ?>
+                                                    <li><?= htmlspecialchars(trim($remark)) ?></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php else: ?>
+                                            No remarks
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        No remarks
+                                    <?php endif; ?>
+                                </td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
                                         <a href="view_household.php?household_number=<?= $family['household_number'] ?>" class="btn btn-info" title="View Household">
                                             <i class="bi bi-house-door"></i>
                                         </a>
-                                        <a href="edit.php?id=<?= $family['id'] ?>" class="btn btn-warning" title="Edit">
+                                        <a href="#" class="btn btn-warning edit-member" title="Edit" data-id="<?= $family['id'] ?>">
                                             <i class="bi bi-pencil"></i>
                                         </a>
                                         <a href="delete.php?id=<?= $family['id'] ?>" class="btn btn-danger" title="Delete" onclick="return confirm('Are you sure?')">
@@ -268,19 +296,32 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <!-- Pagination -->
                     <nav>
                         <ul class="pagination justify-content-center">
-                            <?php if ($page > 1): ?>
-                                <li class="page-item"><a class="page-link" href="?page=<?= $page - 1 ?>">Previous</a></li>
-                            <?php endif; ?>
+                            <!-- Previous Button -->
+                            <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                                <a class="page-link" href="?page=<?= $page - 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($barangay_filter) ? '&barangay=' . urlencode($barangay_filter) : '' ?>">Previous</a>
+                            </li>
+
+                            <!-- Page Numbers - Limited to 5 visible pages around current page -->
+                            <?php
+                            $max_visible_pages = 20;
+                            $start_page = max(1, $page - floor($max_visible_pages/2));
+                            $end_page = min($total_pages, $start_page + $max_visible_pages - 1);
                             
-                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                            // Adjust if we're at the beginning
+                            if ($end_page - $start_page + 1 < $max_visible_pages) {
+                                $start_page = max(1, $end_page - $max_visible_pages + 1);
+                            }
+
+                            for ($i = $start_page; $i <= $end_page; $i++): ?>
                                 <li class="page-item <?= $i == $page ? 'active' : '' ?>">
-                                    <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
+                                    <a class="page-link" href="?page=<?= $i ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($barangay_filter) ? '&barangay=' . urlencode($barangay_filter) : '' ?>"><?= $i ?></a>
                                 </li>
                             <?php endfor; ?>
-                            
-                            <?php if ($page < $total_pages): ?>
-                                <li class="page-item"><a class="page-link" href="?page=<?= $page + 1 ?>">Next</a></li>
-                            <?php endif; ?>
+
+                            <!-- Next Button -->
+                            <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                                <a class="page-link" href="?page=<?= $page + 1 ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?><?= !empty($barangay_filter) ? '&barangay=' . urlencode($barangay_filter) : '' ?>">Next</a>
+                            </li>
                         </ul>
                     </nav>
                 </div>
@@ -426,9 +467,53 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
 
+    <!-- Edit Member Modal -->
+    <div class="modal fade" id="editMemberModal" tabindex="-1" aria-labelledby="editMemberModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="editMemberModalLabel">Edit Family Member</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="editMemberModalBody">
+                    <!-- Content will be loaded via AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     $(document).ready(function() {
+        // Handle edit button click
+        $(document).on('click', '.edit-member', function() {
+            var memberId = $(this).data('id');
+            
+            // Load the edit form via AJAX
+            $.get('edit.php?id=' + memberId, function(data) {
+                $('#editMemberModalBody').html(data);
+                $('#editMemberModal').modal('show');
+            });
+        });
+
+        // Handle form submission
+        $(document).on('submit', '#editMemberForm', function(e) {
+            e.preventDefault();
+            
+            $.ajax({
+                url: $(this).attr('action'),
+                type: 'POST',
+                data: $(this).serialize(),
+                success: function(response) {
+                    $('#editMemberModal').modal('hide');
+                    window.location.reload(); // Refresh to see changes
+                },
+                error: function(xhr, status, error) {
+                    alert('Error updating member: ' + error);
+                }
+            });
+        });
+        
         // Import Modal
         $('#importModal form').on('submit', function(e) {
             e.preventDefault();
@@ -465,22 +550,10 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
             const searchTerm = $('#searchInput').val();
             const barangayFilter = $('#barangaySelect').val();
             
-            $.ajax({
-                url: 'search_families.php',
-                method: 'GET',
-                data: {
-                    search: searchTerm,
-                    barangay: barangayFilter
-                },
-                success: function(response) {
-                    $('#familyTableBody').html(response);
-                    // Hide pagination during search
-                    $('.pagination').hide();
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error:', error);
-                }
-            });
+            // Reset to page 1 when searching or filtering
+            window.location.href = '?page=1' + 
+                (searchTerm ? '&search=' + encodeURIComponent(searchTerm) : '') + 
+                (barangayFilter ? '&barangay=' + encodeURIComponent(barangayFilter) : '');
         }
 
         // Handle successful form submission

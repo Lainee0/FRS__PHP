@@ -2,7 +2,7 @@
 $host = 'localhost';
 $dbname = 'frs_db';
 $username = 'root';
-$password = 'coding101';
+$password = '';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
