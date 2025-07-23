@@ -35,7 +35,7 @@ $where = [];
 $params = [];
 
 if (!empty($search)) {
-    $where[] = "(last_name LIKE :search OR first_name LIKE :search)";
+    $where[] = "(last_name LIKE :search OR first_name LIKE :search OR remarks LIKE :search)";
     $params[':search'] = "%$search%";
 }
 
