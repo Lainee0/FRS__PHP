@@ -68,19 +68,19 @@ $barangays = $stmt->fetchAll(PDO::FETCH_COLUMN);
             </div>
             <div class="mb-3">
                 <label class="form-label">Last Name</label>
-                <input type="text" class="form-control" name="last_name" value="<?= htmlspecialchars($family['last_name']) ?>" required>
+                <input type="text" class="form-control" name="last_name" placeholder="Ex. Dela Cruz" value="<?= htmlspecialchars($family['last_name']) ?>" required>
             </div>
             <div class="mb-3">
                 <label class="form-label">First Name</label>
-                <input type="text" class="form-control" name="first_name" value="<?= htmlspecialchars($family['first_name']) ?>" required>
+                <input type="text" class="form-control" name="first_name" placeholder="Ex. Juan" value="<?= htmlspecialchars($family['first_name']) ?>" required>
             </div>
             <div class="mb-3">
                 <label class="form-label">Middle Name</label>
-                <input type="text" class="form-control" name="middle_name" value="<?= htmlspecialchars($family['middle_name']) ?>">
+                <input type="text" class="form-control" name="middle_name" placeholder="Ex. Reyes" value="<?= htmlspecialchars($family['middle_name']) ?>">
             </div>
             <div class="mb-3">
                 <label class="form-label">Extension</label>
-                <input type="text" class="form-control" name="ext" value="<?= htmlspecialchars($family['ext']) ?>">
+                <input type="text" class="form-control" name="ext" placeholder="Ex. Jr, III" value="<?= htmlspecialchars($family['ext']) ?>">
             </div>
         </div>
         <div class="col-md-6">
@@ -111,11 +111,11 @@ $barangays = $stmt->fetchAll(PDO::FETCH_COLUMN);
             </div>
             <div class="mb-3">
                 <label class="form-label">Birthday</label>
-                <input type="date" class="form-control" name="birthday" value="<?= htmlspecialchars($family['birthday']) ?>" required>
+                <input type="date" class="form-control" name="birthday" id="editBirthday" value="<?= htmlspecialchars($family['birthday']) ?>" required>
             </div>
             <div class="mb-3">
                 <label class="form-label">Age</label>
-                <input type="number" class="form-control" name="age" value="<?= htmlspecialchars($family['age']) ?>" required>
+                <input type="number" class="form-control" name="age" id="editAge" value="<?= htmlspecialchars($family['age']) ?>" required readonly>
             </div>
             <div class="mb-3">
                 <label class="form-label">Sex</label>
@@ -140,3 +140,44 @@ $barangays = $stmt->fetchAll(PDO::FETCH_COLUMN);
         <button type="submit" class="btn btn-primary">Update</button>
     </div>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const birthdayInput = document.getElementById('editBirthday');
+    const ageInput = document.getElementById('editAge');
+
+    // Calculate age when birthday changes
+    birthdayInput.addEventListener('change', function() {
+        if (this.value) {
+            const birthDate = new Date(this.value);
+            const today = new Date();
+            
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            
+            ageInput.value = age;
+        } else {
+            ageInput.value = '';
+        }
+    });
+
+    // Calculate initial age if birthday is already set
+    if (birthdayInput.value) {
+        const birthDate = new Date(birthdayInput.value);
+        const today = new Date();
+        
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        
+        ageInput.value = age;
+    }
+});
+</script>

@@ -89,6 +89,7 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <title>Family Registry System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="assets/img/GH Logo.png">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         .sidebar {
@@ -132,6 +133,9 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
         /* Modal form styling */
         .modal-body .row {
             margin-bottom: 15px;
+        }
+        input::placeholder {
+            color: #a9aeb3ff !important;
         }
     </style>
 </head>
@@ -281,8 +285,7 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <a href="view_household.php?barangay=<?= $family['barangay'] ?>&household_number=<?= $family['household_number'] ?>" class="btn btn-info"
-                                            title="View Household">
+                                        <a href="view_household.php?barangay=<?= urlencode($family['barangay']) ?>&household_number=<?= $family['household_number'] ?>" class="btn btn-info" title="View Household">
                                             <i class="bi bi-house-door"></i>
                                         </a>
                                         <a href="#" class="btn btn-warning edit-member" title="Edit" data-id="<?= $family['id'] ?>">
@@ -348,31 +351,30 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">Household Number</label>
-                                    <input type="text" class="form-control" name="household_number" required>
+                                    <input type="text" class="form-control" name="household_number" placeholder="Ex. 0000001, 01" required>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Row Indicator</label>
                                     <select class="form-select" name="row_indicator" required>
                                         <option value="Head">Head</option>
                                         <option value="Member">Member</option>
-                                        <!-- <option value="Dead">Dead</option> -->
                                     </select>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" name="last_name" required>
+                                    <input type="text" class="form-control" name="last_name" placeholder="Ex. Dela Cruz" required>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">First Name</label>
-                                    <input type="text" class="form-control" name="first_name" required>
+                                    <input type="text" class="form-control" name="first_name" placeholder="Ex. Juan" required>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Middle Name</label>
-                                    <input type="text" class="form-control" name="middle_name">
+                                    <input type="text" class="form-control" name="middle_name" placeholder="Ex. Reyes">
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Extension</label>
-                                    <input type="text" class="form-control" name="ext">
+                                    <input type="text" class="form-control" name="ext" placeholder="Ex. Jr, III">
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -401,11 +403,11 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Birthday</label>
-                                    <input type="date" class="form-control" name="birthday" required>
+                                    <input type="date" class="form-control" name="birthday" id="birthdayInput" required>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Age</label>
-                                    <input type="number" class="form-control" name="age" required>
+                                    <input type="number" class="form-control" name="age" id="ageInput" required readonly>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Sex</label>
@@ -423,10 +425,6 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         <option value="Widower">Widower</option>
                                     </select>
                                 </div>
-                                <!-- <div class="mb-3 form-check">
-                                    <input type="checkbox" class="form-check-input" name="is_leader" id="is_leader">
-                                    <label class="form-check-label" for="is_leader">Leader</label>
-                                </div> -->
                             </div>
                         </div>
                     </div>
@@ -531,8 +529,6 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 processData: false,
                 contentType: false,
                 success: function(response) {
-                    // This will handle the redirect from import.php
-                    // The success/error messages will be shown via session messages
                     $('#importModal').modal('hide');
                     window.location.reload();
                 },
@@ -541,76 +537,106 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 }
             });
         });
-        // Real-time search functionality
-        $('#searchInput').on('input', function() {
-            performSearch();
-        });
 
-        // Barangay filter change
+        // Search functionality
+        function performSearch() {
+            const searchTerm = $('#searchInput').val();
+            const barangayFilter = $('#barangaySelect').val();
+            
+            // Submit the form immediately
+            $('#searchForm').submit();
+        }
+
+        // Trigger search when barangay is selected
         $('#barangaySelect').change(function() {
             performSearch();
         });
 
-        function performSearch() {
-            const searchTerm = $('#searchInput').val();
-            const barangayFilter = $('#barangaySelect').val();
-            const page = <?= $page ?>; // Get current page from PHP
-            
-            // Show loading spinner
-            $('.loading-spinner').show();
-            
-            // Update URL without reloading
-            const newUrl = '?page=' + page + 
-                (searchTerm ? '&search=' + encodeURIComponent(searchTerm) : '') + 
-                (barangayFilter ? '&barangay=' + encodeURIComponent(barangayFilter) : '');
-            window.history.pushState({ path: newUrl }, '', newUrl);
-            
-            $.ajax({
-                url: 'search_handler.php', // Create this new file
-                type: 'GET',
-                data: {
-                    search: searchTerm,
-                    barangay: barangayFilter,
-                    page: page
-                },
-                success: function(response) {
-                    // Parse the JSON response
-                    const data = JSON.parse(response);
-                    
-                    // Update table body
-                    $('#familyTableBody').html(data.table_body);
-                    
-                    // Update pagination
-                    $('.pagination').html(data.pagination);
-                    
-                    // Hide loading spinner
-                    $('.loading-spinner').hide();
-                },
-                error: function(xhr, status, error) {
-                    alert('Error during search: ' + error);
-                    $('.loading-spinner').hide();
-                }
-            });
-        }
-
-        // Debounced search (300ms delay)
-        const debouncedSearch = debounce(performSearch, 300);
-
-        // Event listeners with debounce
-        $('#searchInput').on('input', debouncedSearch);
-        $('#barangaySelect').change(debouncedSearch);
-
-        // Handle back/forward navigation
-        window.onpopstate = function(event) {
-            // You might want to reload the page to keep things simple
-            window.location.reload();
-        };
+        // Optional: Also trigger search on input (with slight delay)
+        //$('#searchInput').on('input', function() {
+        //    setTimeout(performSearch, 300);
+        //});
 
         // Handle successful form submission
         <?php if (isset($_SESSION['success_message'])): ?>
             alert('<?= $_SESSION['success_message'] ?>');
             <?php unset($_SESSION['success_message']); ?>
         <?php endif; ?>
+    });
+    </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const birthdayInput = document.getElementById('birthdayInput');
+        const ageInput = document.getElementById('ageInput');
+
+        birthdayInput.addEventListener('change', function() {
+            if (this.value) {
+                const birthDate = new Date(this.value);
+                const today = new Date();
+                
+                // Calculate age
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                
+                // Adjust age if birthday hasn't occurred yet this year
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                
+                ageInput.value = age;
+            } else {
+                ageInput.value = '';
+            }
+        });
+    });
+    </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Function to calculate age
+        function calculateAge(birthdayInput, ageFieldId) {
+            if (birthdayInput.value) {
+                const birthDate = new Date(birthdayInput.value);
+                const today = new Date();
+                
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                
+                document.getElementById(ageFieldId).value = age;
+            } else {
+                document.getElementById(ageFieldId).value = '';
+            }
+        }
+
+        // For create member modal
+        const createBirthdayInput = document.getElementById('birthdayInput');
+        const createAgeInput = document.getElementById('ageInput');
+        
+        if (createBirthdayInput && createAgeInput) {
+            createBirthdayInput.addEventListener('change', function() {
+                calculateAge(this, 'ageInput');
+            });
+        }
+
+        // For edit member modal (this will work with AJAX-loaded content)
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'editBirthday') {
+                calculateAge(e.target, 'editAge');
+            }
+        });
+
+        // When edit modal is shown, calculate initial age if birthday exists
+        $('#editMemberModal').on('shown.bs.modal', function() {
+            const editBirthday = document.getElementById('editBirthday');
+            const editAge = document.getElementById('editAge');
+            
+            if (editBirthday && editBirthday.value && editAge) {
+                calculateAge(editBirthday, 'editAge');
+            }
+        });
     });
     </script>
 </body>
