@@ -20,79 +20,92 @@ if (!$current_barangay) {
 
 // Handle form submission for remarks
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['save_remarks'])) {
-        $member_id = $_POST['member_id'];
-        $remarks = $_POST['remarks']; // This is an array
-        
-        // Combine all remarks with newline separation
-        $combinedRemarks = implode("\n", array_filter($remarks, function($r) { 
-            return !empty(trim($r)); 
-        }));
-        
-        try {
-            $stmt = $pdo->prepare("UPDATE families SET remarks = ? WHERE id = ?");
-            $stmt->execute([$combinedRemarks, $member_id]);
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (isset($_POST['save_remarks'])) {
+            $member_id = $_POST['member_id'];
+            $remarks = $_POST['remarks']; // This is an array
             
-            $_SESSION['success_message'] = "Remarks saved successfully!";
-            header("Location: view_household.php?household_number=" . $household_number);
-            exit;
-        } catch (PDOException $e) {
-            $_SESSION['error_message'] = "Error saving remarks: " . $e->getMessage();
-            header("Location: view_household.php?household_number=" . $household_number);
-            exit;
+            // Combine all remarks with newline separation
+            $combinedRemarks = implode("\n", array_filter($remarks, function($r) { 
+                return !empty(trim($r)); 
+            }));
+            
+            try {
+                $stmt = $pdo->prepare("UPDATE families SET remarks = ? WHERE id = ?");
+                $stmt->execute([$combinedRemarks, $member_id]);
+                
+                $_SESSION['success_message'] = "Remarks saved successfully!";
+                header("Location: view_household.php?household_number=" . $household_number);
+                exit;
+            } catch (PDOException $e) {
+                $_SESSION['error_message'] = "Error saving remarks: " . $e->getMessage();
+                header("Location: view_household.php?household_number=" . $household_number);
+                exit;
+            }
         }
-    }
-    elseif (isset($_POST['update_member'])) {
-        $member_id = $_POST['member_id'];
-        $data = [
-            'last_name' => $_POST['last_name'],
-            'first_name' => $_POST['first_name'],
-            'middle_name' => $_POST['middle_name'],
-            'ext' => $_POST['ext'],
-            'relationship' => $_POST['relationship'],
-            'birthday' => $_POST['birthday'],
-            'age' => $_POST['age'],
-            'sex' => $_POST['sex'],
-            'civil_status' => $_POST['civil_status'],
-            'is_leader' => isset($_POST['is_leader']) ? 1 : 0,
-            'id' => $member_id
-        ];
-        
-        try {
-            $stmt = $pdo->prepare("UPDATE families SET 
-                last_name = :last_name,
-                first_name = :first_name,
-                middle_name = :middle_name,
-                ext = :ext,
-                relationship = :relationship,
-                birthday = :birthday,
-                age = :age,
-                sex = :sex,
-                civil_status = :civil_status,
-                is_leader = :is_leader
-                WHERE id = :id");
+        elseif (isset($_POST['update_member'])) {
+            $member_id = $_POST['member_id'];
+            $data = [
+                'last_name' => $_POST['last_name'],
+                'first_name' => $_POST['first_name'],
+                'middle_name' => $_POST['middle_name'],
+                'ext' => $_POST['ext'],
+                'relationship' => $_POST['relationship'],
+                'birthday' => $_POST['birthday'],
+                'age' => $_POST['age'],
+                'sex' => $_POST['sex'],
+                'civil_status' => $_POST['civil_status'],
+                'is_leader' => isset($_POST['is_leader']) ? 1 : 0,
+                'id' => $member_id
+            ];
             
-            $stmt->execute($data);
-            
-            $_SESSION['success_message'] = "Member updated successfully!";
-            header("Location: view_household.php?household_number=" . $household_number);
-            exit;
-        } catch (PDOException $e) {
-            $_SESSION['error_message'] = "Error updating member: " . $e->getMessage();
-            header("Location: view_household.php?household_number=" . $household_number);
-            exit;
+            try {
+                $stmt = $pdo->prepare("UPDATE families SET 
+                    last_name = :last_name,
+                    first_name = :first_name,
+                    middle_name = :middle_name,
+                    ext = :ext,
+                    relationship = :relationship,
+                    birthday = :birthday,
+                    age = :age,
+                    sex = :sex,
+                    civil_status = :civil_status,
+                    is_leader = :is_leader
+                    WHERE id = :id");
+                
+                $stmt->execute($data);
+                
+                $_SESSION['success_message'] = "Member updated successfully!";
+                header("Location: view_household.php?household_number=" . $household_number);
+                exit;
+            } catch (PDOException $e) {
+                $_SESSION['error_message'] = "Error updating member: " . $e->getMessage();
+                header("Location: view_household.php?household_number=" . $household_number);
+                exit;
+            }
         }
     }
 }
 
 // Get household head info (first head found with this household number AND barangay)
-$stmt = $pdo->prepare("SELECT * FROM families WHERE household_number = ? AND barangay = ? AND is_head = 1 LIMIT 1");
+$stmt = $pdo->prepare("
+    SELECT * FROM families 
+    WHERE household_number = ? 
+    AND barangay = ? 
+    AND is_head = 1 
+    LIMIT 1
+");
 $stmt->execute([$household_number, $current_barangay]);
 $head = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$head) {
     // If no head found, just get the first member (for display purposes)
-    $stmt = $pdo->prepare("SELECT * FROM families WHERE household_number = ? AND barangay = ? LIMIT 1");
+    $stmt = $pdo->prepare("
+        SELECT * FROM families 
+        WHERE household_number = ? 
+        AND barangay = ? 
+        LIMIT 1
+    ");
     $stmt->execute([$household_number, $current_barangay]);
     $head = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -104,23 +117,33 @@ if (!$head) {
 
 // Get all household members with the same household_number AND barangay
 $stmt = $pdo->prepare("
-    SELECT * FROM families 
-    WHERE household_number = ? AND barangay = ?
-    ORDER BY 
-        is_head DESC, -- Head first
-        CASE 
-            WHEN relationship LIKE '1 - Puno ng Pamilya' THEN 1
-            WHEN relationship LIKE '2 - Asawa' THEN 2
-            WHEN relationship LIKE '3 - Anak' THEN 3
-            ELSE 4
-        END,
-        age DESC
+  SELECT * FROM families
+  WHERE household_number = :household_number
+    AND barangay = :barangay
+  ORDER BY
+    is_head DESC,
+    CASE
+      WHEN relationship LIKE '1 - Puno ng Pamilya' THEN 1
+      WHEN relationship LIKE '2 - Asawa' THEN 2
+      WHEN relationship LIKE '3 - Anak' THEN 3
+      ELSE 4
+    END,
+    age DESC
 ");
-$stmt->execute([$household_number, $current_barangay]);
+
+$stmt->execute([
+  ':household_number' => $household_number,
+  ':barangay' => $current_barangay
+]);
 $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get all household numbers in the same barangay for navigation
-$stmt = $pdo->prepare("SELECT DISTINCT household_number FROM families WHERE barangay = ? ORDER BY household_number");
+$stmt = $pdo->prepare("
+    SELECT DISTINCT household_number 
+    FROM families 
+    WHERE barangay = ? 
+    ORDER BY household_number
+");
 $stmt->execute([$current_barangay]);
 $household_numbers = $stmt->fetchAll(PDO::FETCH_COLUMN);
 ?>
@@ -182,7 +205,7 @@ $household_numbers = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2>Household Members - <?= htmlspecialchars($head['first_name'] ?? '') ?> <?= htmlspecialchars($head['last_name'] ?? '') ?></h2>
-            <a href="index.php" class="btn btn-secondary">
+            <a href="index.php?barangay=<?= urlencode($current_barangay) ?>" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Back to List
             </a>
         </div>
@@ -194,7 +217,7 @@ $household_numbers = $stmt->fetchAll(PDO::FETCH_COLUMN);
                     <p class="mb-1"><strong>Total Members:</strong> <?= count($members) ?></p>
                 </div>
                 <div class="col-md-6">
-                    <p class="mb-1"><strong>Barangay:</strong> <?= htmlspecialchars($head['barangay'] ?? '') ?></p>
+                    <p class="mb-1"><strong>Barangay:</strong> <?= htmlspecialchars($current_barangay) ?></p>
                 </div>
             </div>
         </div>

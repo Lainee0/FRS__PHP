@@ -38,7 +38,8 @@ if (!empty($search)) {
     $where[] = "(CONCAT(first_name, ' ', last_name) LIKE :search 
                  OR last_name LIKE :search 
                  OR first_name LIKE :search 
-                 OR remarks LIKE :search)";
+                 OR remarks LIKE :search
+                 OR household_number LIKE :search)";
     $params[':search'] = "%$search%";
 }
 
@@ -90,14 +91,6 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
-        .loading-spinner {
-            display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1000;
-        }
         .sidebar {
             height: 100vh;
             position: fixed;
@@ -288,7 +281,8 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <a href="view_household.php?household_number=<?= $family['household_number'] ?>" class="btn btn-info" title="View Household">
+                                        <a href="view_household.php?barangay=<?= $family['barangay'] ?>&household_number=<?= $family['household_number'] ?>" class="btn btn-info"
+                                            title="View Household">
                                             <i class="bi bi-house-door"></i>
                                         </a>
                                         <a href="#" class="btn btn-warning edit-member" title="Edit" data-id="<?= $family['id'] ?>">
@@ -303,12 +297,6 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <?php endforeach; ?>
                         </tbody>
                     </table>
-
-                    <!-- <div class="loading-spinner">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </div> -->
                     
                     <!-- Pagination -->
                     <nav>
@@ -543,6 +531,8 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 processData: false,
                 contentType: false,
                 success: function(response) {
+                    // This will handle the redirect from import.php
+                    // The success/error messages will be shown via session messages
                     $('#importModal').modal('hide');
                     window.location.reload();
                 },
@@ -551,24 +541,16 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 }
             });
         });
+        // Real-time search functionality
+        $('#searchInput').on('input', function() {
+            performSearch();
+        });
 
-        // Debounce function to limit how often search is performed
-        function debounce(func, wait, immediate) {
-            var timeout;
-            return function() {
-                var context = this, args = arguments;
-                var later = function() {
-                    timeout = null;
-                    if (!immediate) func.apply(context, args);
-                };
-                var callNow = immediate && !timeout;
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-                if (callNow) func.apply(context, args);
-            };
-        }
+        // Barangay filter change
+        $('#barangaySelect').change(function() {
+            performSearch();
+        });
 
-        // AJAX search function
         function performSearch() {
             const searchTerm = $('#searchInput').val();
             const barangayFilter = $('#barangaySelect').val();
