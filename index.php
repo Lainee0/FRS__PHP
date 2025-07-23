@@ -35,7 +35,10 @@ $where = [];
 $params = [];
 
 if (!empty($search)) {
-    $where[] = "(last_name LIKE :search OR first_name LIKE :search OR remarks LIKE :search)";
+    $where[] = "(CONCAT(first_name, ' ', last_name) LIKE :search 
+                 OR last_name LIKE :search 
+                 OR first_name LIKE :search 
+                 OR remarks LIKE :search)";
     $params[':search'] = "%$search%";
 }
 
@@ -87,6 +90,14 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
+        .loading-spinner {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
         .sidebar {
             height: 100vh;
             position: fixed;
@@ -292,6 +303,12 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+
+                    <!-- <div class="loading-spinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div> -->
                     
                     <!-- Pagination -->
                     <nav>
@@ -526,8 +543,6 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 processData: false,
                 contentType: false,
                 success: function(response) {
-                    // This will handle the redirect from import.php
-                    // The success/error messages will be shown via session messages
                     $('#importModal').modal('hide');
                     window.location.reload();
                 },
@@ -536,25 +551,78 @@ $families = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 }
             });
         });
-        // Real-time search functionality
-        $('#searchInput').on('input', function() {
-            performSearch();
-        });
 
-        // Barangay filter change
-        $('#barangaySelect').change(function() {
-            performSearch();
-        });
+        // Debounce function to limit how often search is performed
+        function debounce(func, wait, immediate) {
+            var timeout;
+            return function() {
+                var context = this, args = arguments;
+                var later = function() {
+                    timeout = null;
+                    if (!immediate) func.apply(context, args);
+                };
+                var callNow = immediate && !timeout;
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+                if (callNow) func.apply(context, args);
+            };
+        }
 
+        // AJAX search function
         function performSearch() {
             const searchTerm = $('#searchInput').val();
             const barangayFilter = $('#barangaySelect').val();
+            const page = <?= $page ?>; // Get current page from PHP
             
-            // Reset to page 1 when searching or filtering
-            window.location.href = '?page=1' + 
+            // Show loading spinner
+            $('.loading-spinner').show();
+            
+            // Update URL without reloading
+            const newUrl = '?page=' + page + 
                 (searchTerm ? '&search=' + encodeURIComponent(searchTerm) : '') + 
                 (barangayFilter ? '&barangay=' + encodeURIComponent(barangayFilter) : '');
+            window.history.pushState({ path: newUrl }, '', newUrl);
+            
+            $.ajax({
+                url: 'search_handler.php', // Create this new file
+                type: 'GET',
+                data: {
+                    search: searchTerm,
+                    barangay: barangayFilter,
+                    page: page
+                },
+                success: function(response) {
+                    // Parse the JSON response
+                    const data = JSON.parse(response);
+                    
+                    // Update table body
+                    $('#familyTableBody').html(data.table_body);
+                    
+                    // Update pagination
+                    $('.pagination').html(data.pagination);
+                    
+                    // Hide loading spinner
+                    $('.loading-spinner').hide();
+                },
+                error: function(xhr, status, error) {
+                    alert('Error during search: ' + error);
+                    $('.loading-spinner').hide();
+                }
+            });
         }
+
+        // Debounced search (300ms delay)
+        const debouncedSearch = debounce(performSearch, 300);
+
+        // Event listeners with debounce
+        $('#searchInput').on('input', debouncedSearch);
+        $('#barangaySelect').change(debouncedSearch);
+
+        // Handle back/forward navigation
+        window.onpopstate = function(event) {
+            // You might want to reload the page to keep things simple
+            window.location.reload();
+        };
 
         // Handle successful form submission
         <?php if (isset($_SESSION['success_message'])): ?>
